@@ -52,12 +52,12 @@ jobs:
           --components="main,contrib,non-free" \
           --include=ca-certificates,locales,kali-archive-keyring \
           --format=tar \
+          kali-rolling \
           --customize-hook='chroot $1 sed -i "s/^# \(en_US.UTF-8\)/\1/" /etc/locale.gen' \
           --customize-hook='chroot $1 /bin/bash -c "DEBIAN_FRONTEND=noninteractive dpkg-reconfigure locales"' \
           --customize-hook='chroot $1 /bin/bash -c "echo LANG=en_US.UTF-8 > /etc/default/locale"' \
-          kali-rolling \
-          http://http.kali.org/kali \
           - \
+          http://http.kali.org/kali
           | xz -9 -T0 -c > tmprootfs.tar.xz
           mkdir $GITHUB_WORKSPACE/kali
           tar  --exclude=dev/* -xJpf tmprootfs.tar.xz -C kali
@@ -106,12 +106,12 @@ jobs:
           --components="main,contrib,non-free" \
           --include=ca-certificates,locales,kali-archive-keyring \
           --format=tar \
+          kali-rolling \
           --customize-hook='chroot $1 sed -i "s/^# \(en_US.UTF-8\)/\1/" /etc/locale.gen' \
           --customize-hook='chroot $1 /bin/bash -c "DEBIAN_FRONTEND=noninteractive dpkg-reconfigure locales"' \
           --customize-hook='chroot $1 /bin/bash -c "echo LANG=en_US.UTF-8 > /etc/default/locale"' \
-          kali-rolling \
-          http://http.kali.org/kali \
           - \
+          http://http.kali.org/kali
           | xz -9 -T0 -c > tmprootfs.tar.xz
           mkdir $GITHUB_WORKSPACE/kali
           tar  --exclude=dev/* -xJpf tmprootfs.tar.xz -C kali
