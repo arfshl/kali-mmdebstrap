@@ -1,0 +1,132 @@
+name: "Kali Linux"
+
+on:
+  schedule:
+# Build Every Week
+    - cron: "0 0 * * 0"
+  push:
+    branches: [ 'main' ]
+    paths:
+      - ".github/workflows/kali.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: write  
+
+jobs:
+  build-arm:
+    runs-on: ubuntu-24.04-arm
+    strategy:
+      matrix:
+        arch: [aarch64, arm]
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+      - name: Install Needed Dependencies
+        run: |
+          curl -L -o /tmp/mmdebstrap.deb http://ftp.us.debian.org/debian/pool/main/m/mmdebstrap/mmdebstrap_1.5.7-3_all.deb
+          sudo apt install -yq /tmp/mmdebstrap.deb
+          curl -L -o /tmp/keyring.deb http://ftp.us.debian.org/debian/pool/main/d/debian-archive-keyring/debian-archive-keyring_2025.1_all.deb
+          sudo apt install -yq /tmp/keyring.deb
+          sudo wget https://archive.kali.org/archive-keyring.gpg -O /usr/share/keyrings/kali-archive-keyring.gpg
+          sudo dpkg --add-architecture armhf
+          sudo apt update
+          sudo apt install -y libc6:armhf
+
+      - name: Start Building
+        run: |
+          ARCH=${{ matrix.arch }}
+          case "$ARCH" in
+          arm)
+          ARCH="armhf"
+          ;;
+          aarch64)
+          ARCH="arm64"
+          ;;
+          esac
+          sudo mmdebstrap \
+          --arch=$ARCH \
+          --variant=minbase \
+          --components="main,contrib,non-free" \
+          --include=ca-certificates,locales,kali-archive-keyring \
+          --format=tar \
+          --customize-hook='chroot $1 sed -i "s/^# \(en_US.UTF-8\)/\1/" /etc/locale.gen' \
+          --customize-hook='chroot $1 /bin/bash -c "DEBIAN_FRONTEND=noninteractive dpkg-reconfigure locales"' \
+          --customize-hook='chroot $1 /bin/bash -c "echo LANG=en_US.UTF-8 > /etc/default/locale"' \
+          kali-rolling \
+          http://http.kali.org/kali \
+          - \
+          | xz -9 -T0 -c > tmprootfs.tar.xz
+          mkdir $GITHUB_WORKSPACE/kali
+          tar  --exclude=dev/* -xJpf tmprootfs.tar.xz -C kali
+          sudo tar -cpf - kali | xz -9 -T0 -c > kali-${{ matrix.arch }}.tar.xz
+          sudo rm -r kali
+
+      - name: Push to Release
+        uses: softprops/action-gh-release@v3
+        with:
+          tag_name: kali
+          name: Kali Linux (Rolling Release)
+          files: |
+            kali-${{ matrix.arch }}.tar.xz
+          preserve_order: true
+          make_latest: true
+
+  build-amd:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        arch: [ x86_64 ]
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+      - name: Install Needed Dependencies
+        run: |
+          curl -L -o /tmp/mmdebstrap.deb http://ftp.us.debian.org/debian/pool/main/m/mmdebstrap/mmdebstrap_1.5.7-3_all.deb
+          sudo apt install -yq /tmp/mmdebstrap.deb
+          curl -L -o /tmp/keyring.deb http://ftp.us.debian.org/debian/pool/main/d/debian-archive-keyring/debian-archive-keyring_2025.1_all.deb
+          sudo apt install -yq /tmp/keyring.deb
+          sudo wget https://archive.kali.org/archive-keyring.gpg -O /usr/share/keyrings/kali-archive-keyring.gpg
+
+      - name: Start Building
+        run: |
+          ARCH=${{ matrix.arch }}
+          case "$ARCH" in
+          x86_64)
+          ARCH="amd64"
+          ;;
+          esac
+          sudo mmdebstrap \
+          --arch=$ARCH \
+          --variant=minbase \
+          --components="main,contrib,non-free" \
+          --include=ca-certificates,locales,kali-archive-keyring \
+          --format=tar \
+          --customize-hook='chroot $1 sed -i "s/^# \(en_US.UTF-8\)/\1/" /etc/locale.gen' \
+          --customize-hook='chroot $1 /bin/bash -c "DEBIAN_FRONTEND=noninteractive dpkg-reconfigure locales"' \
+          --customize-hook='chroot $1 /bin/bash -c "echo LANG=en_US.UTF-8 > /etc/default/locale"' \
+          kali-rolling \
+          http://http.kali.org/kali \
+          - \
+          | xz -9 -T0 -c > tmprootfs.tar.xz
+          mkdir $GITHUB_WORKSPACE/kali
+          tar  --exclude=dev/* -xJpf tmprootfs.tar.xz -C kali
+          sudo tar -cpf - kali | xz -9 -T0 -c > kali-${{ matrix.arch }}.tar.xz
+          sudo rm -r kali
+
+      - name: Push to Release
+        uses: softprops/action-gh-release@v3
+        with:
+          tag_name: kali
+          name: Kali Linux (Rolling Release)
+          files: |
+            kali-${{ matrix.arch }}.tar.xz
+          preserve_order: true
+          make_latest: true
+
+env:
+      GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
